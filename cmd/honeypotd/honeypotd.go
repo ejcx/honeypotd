@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/ejcx/honeypotd/honeypots"
+	"github.com/ejcx/honeypotd/honeypots/http"
+	sshpot "github.com/ejcx/honeypotd/honeypots/ssh"
 	"github.com/spf13/cobra"
 )
 
@@ -12,7 +14,9 @@ const (
 )
 
 var (
-	h       = honeypots.HTTPPot{}
+	h = http.HTTPPot{}
+	s = sshpot.SSHPot{}
+
 	rootCmd = &cobra.Command{
 		Use:   "honeypotd",
 		Short: "A simple honeypot daemon",
@@ -26,9 +30,9 @@ var (
 		},
 	}
 
-	runCmd = &cobra.Command{
-		Use:   "run",
-		Short: "Run a honeypot",
+	httpCmd = &cobra.Command{
+		Use:   "http",
+		Short: "Run a http honeypot",
 		Run: func(cmd *cobra.Command, args []string) {
 			honeypot := &honeypots.HoneyPot{
 				Address: "",
@@ -38,11 +42,24 @@ var (
 
 		},
 	}
+
+	sshCmd = &cobra.Command{
+		Use:   "ssh",
+		Short: "Run a SSH honeypot",
+		Run: func(cmd *cobra.Command, args []string) {
+			honeypot := &honeypots.HoneyPot{
+				Address: "",
+				Port:    "2022",
+			}
+			s.Run(honeypot)
+		},
+	}
 )
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(httpCmd)
+	rootCmd.AddCommand(sshCmd)
 }
 
 func main() {
