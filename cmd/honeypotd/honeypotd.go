@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
 
 	"github.com/ejcx/honeypotd/honeypots"
 	"github.com/ejcx/honeypotd/honeypots/http"
@@ -43,6 +45,21 @@ var (
 		},
 	}
 
+	envCmd = &cobra.Command{
+		Use:   "env",
+		Short: "Run a honeypot by environment variable",
+		Run: func(cmd *cobra.Command, args []string) {
+			if e, ok := os.LookupEnv("POT"); ok {
+				switch e {
+				case "HTTP":
+					httpCmd.Run(cmd, args)
+				case "SSH":
+					sshCmd.Run(cmd, args)
+				}
+			}
+			log.Fatal("Run honeypot with POT env set to HTTP or SSH")
+		},
+	}
 	sshCmd = &cobra.Command{
 		Use:   "ssh",
 		Short: "Run a SSH honeypot",
@@ -60,6 +77,7 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(httpCmd)
 	rootCmd.AddCommand(sshCmd)
+	rootCmd.AddCommand(envCmd)
 }
 
 func main() {

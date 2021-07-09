@@ -14,7 +14,7 @@ type HTTPPot struct {
 
 func (p *HTTPPot) Run(h *honeypots.HoneyPot) error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		err := twilio.Notify(fmt.Sprintf("Access from %s\n", r.RemoteAddr))
+		err := twilio.Notify(fmt.Sprintf("HTTP connection from %s\n", r.RemoteAddr))
 		if err != nil {
 			log.Println("Error notifying", err)
 		}

@@ -7,8 +7,8 @@ import (
 	"net"
 
 	"github.com/ejcx/honeypotd/honeypots"
+	"github.com/ejcx/honeypotd/notification/twilio"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 type SSHPot struct {
@@ -39,16 +39,13 @@ func (p *SSHPot) Run(h *honeypots.HoneyPot) error {
 	config := &ssh.ServerConfig{
 		// Remove to disable password auth.
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
-			// Should use constant-time compare (or better, salt+hash) in
-			// a production setting.
-			if c.User() == "testuser" && string(pass) == "tiger" {
-				return nil, nil
-			}
+			twilio.Notify(fmt.Sprintf("SSH password auth connection from %s\n", c.RemoteAddr()))
 			return nil, fmt.Errorf("password rejected for %q", c.User())
 		},
 
 		// Remove to disable public key auth.
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
+			twilio.Notify(fmt.Sprintf("SSH key auth connection from %s\n", c.RemoteAddr()))
 			if authorizedKeysMap[string(pubKey.Marshal())] {
 				return &ssh.Permissions{
 					// Record the public key used for authentication.
@@ -82,14 +79,16 @@ func (p *SSHPot) Run(h *honeypots.HoneyPot) error {
 	for {
 		nConn, err := listener.Accept()
 		if err != nil {
-			log.Fatal("failed to accept incoming connection: ", err)
+			log.Println("failed to accept incoming connection: ", err)
+			continue
 		}
 
 		// Before use, a handshake must be performed on the incoming
 		// net.Conn.
 		conn, chans, reqs, err := ssh.NewServerConn(nConn, config)
 		if err != nil {
-			log.Fatal("failed to handshake: ", err)
+			log.Println("failed to handshake: ", err)
+			continue
 		}
 		if conn.Permissions != nil {
 			log.Printf("logged in with key %s", conn.Permissions.Extensions["pubkey-fp"])
@@ -108,32 +107,34 @@ func (p *SSHPot) Run(h *honeypots.HoneyPot) error {
 				newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 				continue
 			}
-			channel, requests, err := newChannel.Accept()
+			channel, _, err := newChannel.Accept()
 			if err != nil {
-				log.Fatalf("Could not accept channel: %v", err)
+				log.Println("Could not accept channel: %v", err)
+				continue
 			}
+			channel.Close()
 
-			// Sessions have out-of-band requests such as "shell",
-			// "pty-req" and "env".  Here we handle only the
-			// "shell" request.
-			go func(in <-chan *ssh.Request) {
-				for req := range in {
-					req.Reply(req.Type == "shell", nil)
-				}
-			}(requests)
+			// // Sessions have out-of-band requests such as "shell",
+			// // "pty-req" and "env".  Here we handle only the
+			// // "shell" request.
+			// go func(in <-chan *ssh.Request) {
+			// 	for req := range in {
+			// 		req.Reply(req.Type == "shell", nil)
+			// 	}
+			// }(requests)
 
-			term := terminal.NewTerminal(channel, "> ")
+			// term := terminal.NewTerminal(channel, "> ")
 
-			go func() {
-				defer channel.Close()
-				for {
-					line, err := term.ReadLine()
-					if err != nil {
-						break
-					}
-					fmt.Println(line)
-				}
-			}()
+			// go func() {
+			// 	defer
+			// 	for {
+			// 		line, err := term.ReadLine()
+			// 		if err != nil {
+			// 			break
+			// 		}
+			// 		fmt.Println(line)
+			// 	}
+			// }()
 		}
 	}
 	return nil
